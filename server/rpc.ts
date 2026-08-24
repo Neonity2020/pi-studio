@@ -19,7 +19,12 @@ export function buildSession(
   if (params.provider && params.modelId) {
     args.push('--provider', params.provider, '--model', params.modelId);
   } else if (params.modelId) {
-    args.push('--model', params.modelId);
+    if (params.modelId.includes('/')) {
+      args.push('--model', params.modelId);
+    } else {
+      // Avoid ambiguity by defaulting provider prefix
+      args.push('--provider', 'opencode-go', '--model', params.modelId);
+    }
   }
 
   const proc = spawn('pi', args, {

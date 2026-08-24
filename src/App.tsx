@@ -142,12 +142,14 @@ export default function App() {
 
   const handleCreateSession = async () => {
     try {
+      const activeModel = models.find((m) => m.id === currentSession?.model?.id) || models[0];
       const res = await fetch('/api/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: '新对话',
-          modelId: currentSession?.model?.id || models[0]?.id || undefined,
+          modelId: activeModel?.id,
+          provider: activeModel?.provider,
         }),
       });
       const data = await res.json();
@@ -255,11 +257,15 @@ export default function App() {
 
   const handleChangeModel = async (newModelId: string) => {
     if (!activeSessionId) return;
+    const targetModel = models.find((m) => m.id === newModelId);
     try {
       await fetch(`/api/sessions/${activeSessionId}/config`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ modelId: newModelId }),
+        body: JSON.stringify({
+          modelId: newModelId,
+          provider: targetModel?.provider,
+        }),
       });
       fetchSessionDetail(activeSessionId);
     } catch (err) {
