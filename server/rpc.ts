@@ -64,8 +64,17 @@ export function buildSession(
         session.isStreaming = true;
       } else if (json.type === 'agent_end' || json.type === 'agent_settled') {
         session.isStreaming = false;
-        if (json.messages) {
+        if (json.messages && json.messages.length > 0) {
           session.messages = json.messages;
+        }
+      } else if (json.type === 'message_start') {
+        if (json.message) {
+          const existsIndex = session.messages.findIndex(
+            (m) => m.timestamp === json.message.timestamp && m.role === json.message.role,
+          );
+          if (existsIndex < 0) {
+            session.messages.push(json.message);
+          }
         }
       } else if (json.type === 'message_end') {
         if (json.message) {

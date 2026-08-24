@@ -1,3 +1,5 @@
+import path from 'node:path';
+import fs from 'node:fs/promises';
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { createSession, getSession, listSessions } from '../sessions.js';
@@ -5,6 +7,27 @@ import { getAvailableModels } from '../models.js';
 import type { SessionResponse, GetSessionResponse } from '../types.js';
 
 const app = new Hono();
+
+// POST /api/workspaces/validate
+app.post('/api/workspaces/validate', async (c: Context) => {
+  const body = await c.req.json<{ path?: string }>();
+  const raw = (body.path ?? '').trim();
+  if (!raw) {
+    return c.json({ valid: false as const, error: '路径不能为空' });
+  }
+
+  try {
+    const resolvedPath = path.resolve(raw);
+    const stat = await fs.stat(resolvedPath);
+    if (!stat.isDirectory()) {
+      return c.json({ valid: false as const, error: '该路径不是目录' });
+    }
+    await fs.access(resolvedPath, fs.constants.R_OK | fs.constants.X_OK);
+    return c.json({ valid: true as const, resolvedPath });
+  } catch {
+    return c.json({ valid: false as const, error: '目录不存在或无访问权限' });
+  }
+});
 
 // GET /api/models
 app.get('/api/models', (c: Context) => {

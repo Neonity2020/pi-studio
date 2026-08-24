@@ -119,22 +119,26 @@ export default function App() {
     scrollToBottom();
   }, [currentSession?.state.messages]);
 
+  // Switch active session
+  const handleSelectSession = (id: string) => {
+    if (id === activeSessionId) return;
+    setActiveSessionId(id);
+    setCurrentSession(null);
+  };
+
   const handleCreateSession = async () => {
     try {
       const res = await fetch('/api/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: 'New Session',
-          modelId: currentSession?.model.id || models[0]?.id || 'pi-agent-simulation',
-          systemPrompt,
-          apiKey,
-          baseUrl,
+          title: '新对话',
+          modelId: currentSession?.model?.id || models[0]?.id || undefined,
         }),
       });
       const data = await res.json();
       await fetchSessions();
-      setActiveSessionId(data.id);
+      handleSelectSession(data.id);
     } catch (e) {
       console.error('Failed to create session', e);
     }
@@ -261,7 +265,7 @@ export default function App() {
       <Sidebar
         sessions={sessions}
         activeSessionId={activeSessionId}
-        onSelectSession={setActiveSessionId}
+        onSelectSession={handleSelectSession}
         onCreateSession={handleCreateSession}
         models={models}
         selectedModelId={currentSession?.model.id || models[0]?.id || ''}
