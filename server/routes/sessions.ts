@@ -30,8 +30,9 @@ app.post('/api/workspaces/validate', async (c: Context) => {
 });
 
 // GET /api/models
-app.get('/api/models', (c: Context) => {
-  return c.json({ models: getAvailableModels() });
+app.get('/api/models', async (c: Context) => {
+  const models = await getAvailableModels();
+  return c.json({ models });
 });
 
 // GET /api/sessions
@@ -224,7 +225,8 @@ app.post('/api/sessions/:id/config', async (c: Context) => {
   const body = await c.req.json<{ modelId?: string; provider?: string }>();
   const { modelId, provider } = body;
   if (modelId) {
-    const p = provider ?? getAvailableModels().find((m) => m.id === modelId)?.provider ?? 'opencode-go';
+    const models = await getAvailableModels();
+    const p = provider ?? models.find((m) => m.id === modelId)?.provider ?? 'opencode-go';
     sess.proc.stdin.write(
       JSON.stringify({
         id: `set_model_${Date.now()}`,

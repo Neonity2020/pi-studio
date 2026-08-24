@@ -1,19 +1,26 @@
-import { spawn } from 'child_process';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import type { ModelInfo } from './types.js';
 
+const execFileAsync = promisify(execFile);
 let availableModels: ModelInfo[] = [];
 
-export function getAvailableModels(): ModelInfo[] {
+export async function getAvailableModels(): Promise<ModelInfo[]> {
+  if (availableModels.length === 0) {
+    await refreshAvailableModels();
+  }
   return availableModels;
 }
 
-export function refreshAvailableModels(): void {
-  const p = spawn('pi', ['--list-models'], { shell: false });
-  let output = '';
-  p.stdout.on('data', (d) => (output += d.toString()));
-  p.on('close', () => {
-    const lines = output.trim().split('\n');
+export async function refreshAvailableModels(): Promise<ModelInfo[]> {
+  try {
+    const { stdout } = await execFileAsync('pi', ['--list-models'], {
+      env: { ...process.env, PATH: process.env.PATH },
+    });
+
+    const lines = stdout.trim().split('\n');
     const parsed: ModelInfo[] = [];
+
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i].trim();
       if (!line) continue;
@@ -29,8 +36,13 @@ export function refreshAvailableModels(): void {
         });
       }
     }
+
     if (parsed.length > 0) {
       availableModels = parsed;
     }
-  });
+  } catch (err) {
+    console.error('Failed to list pi models:', err);
+  }
+
+  return availableModels;
 }
