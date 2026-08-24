@@ -160,6 +160,7 @@ app.post('/api/sessions/:id/abort', (c: Context) => {
   const sess = getSession(id);
   if (!sess) return c.json({ error: 'Session not found' }, 404);
 
+  sess.isStreaming = false;
   sess.proc.stdin.write(
     JSON.stringify({
       id: `abort_${Date.now()}`,

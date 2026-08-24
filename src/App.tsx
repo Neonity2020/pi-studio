@@ -99,6 +99,7 @@ export default function App() {
           event.type === 'message_end' ||
           event.type === 'tool_execution_end' ||
           event.type === 'agent_end' ||
+          event.type === 'agent_settled' ||
           event.type === 'agent_start' ||
           event.type === 'turn_end'
         ) {
@@ -212,7 +213,18 @@ export default function App() {
   const handleAbort = async () => {
     if (!activeSessionId) return;
     try {
+      if (currentSession) {
+        setCurrentSession({
+          ...currentSession,
+          state: {
+            ...currentSession.state,
+            isStreaming: false,
+          },
+        });
+      }
       await fetch(`/api/sessions/${activeSessionId}/abort`, { method: 'POST' });
+      await fetchSessionDetail(activeSessionId);
+      await fetchSessions();
     } catch (err) {
       console.error('Abort error', err);
     }
@@ -315,7 +327,7 @@ export default function App() {
         </header>
 
         {/* Message Feed */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden divide-y divide-neutral-900/60 pb-32">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden divide-y divide-neutral-900/60 pb-52">
           {(!currentSession || currentSession.state.messages.length === 0) && (
             <div className="h-full flex flex-col items-center justify-center p-8 text-center select-none">
               <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 mb-4 shadow-lg shadow-cyan-950/40">
@@ -357,7 +369,7 @@ export default function App() {
             />
           ))}
 
-          <div ref={messagesEndRef} />
+          <div ref={messagesEndRef} className="h-6" />
         </div>
 
         {/* Bottom Floating Control Bar */}

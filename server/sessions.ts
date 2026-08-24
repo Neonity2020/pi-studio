@@ -29,6 +29,15 @@ export function listSessions(): SessionListItem[] {
   }));
 }
 
+export function deleteSession(id: string): boolean {
+  const sess = sessions.get(id);
+  if (!sess) return false;
+  try {
+    sess.proc.kill('SIGTERM');
+  } catch {}
+  return sessions.delete(id);
+}
+
 export function getDefaultSession(): RpcSession | undefined {
   return sessions.get('default-session');
 }
