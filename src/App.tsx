@@ -121,10 +121,23 @@ export default function App() {
   }, [currentSession?.state.messages]);
 
   // Switch active session
-  const handleSelectSession = (id: string) => {
-    if (id === activeSessionId) return;
+  const handleSelectSession = async (id: string, sessionPath?: string) => {
+    if (id === activeSessionId && currentSession) return;
     setActiveSessionId(id);
     setCurrentSession(null);
+
+    if (sessionPath) {
+      try {
+        await fetch('/api/sessions/switch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionPath }),
+        });
+      } catch (err) {
+        console.error('Failed to switch persistent session:', err);
+      }
+    }
+    await fetchSessionDetail(id);
   };
 
   const handleCreateSession = async () => {

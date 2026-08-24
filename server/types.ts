@@ -30,6 +30,7 @@ export interface SessionListItem {
   workspaceDir: string;
   messageCount: number;
   isStreaming: boolean;
+  sessionPath?: string;
 }
 
 export interface CreateSessionParams {

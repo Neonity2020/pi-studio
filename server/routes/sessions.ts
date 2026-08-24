@@ -2,7 +2,7 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import { Hono } from 'hono';
 import type { Context } from 'hono';
-import { createSession, getSession, listSessions } from '../sessions.js';
+import { createSession, getSession, listAllSessions, switchSessionTo } from '../sessions.js';
 import { getAvailableModels } from '../models.js';
 import type { SessionResponse, GetSessionResponse } from '../types.js';
 
@@ -35,8 +35,25 @@ app.get('/api/models', (c: Context) => {
 });
 
 // GET /api/sessions
-app.get('/api/sessions', (c: Context) => {
-  return c.json({ sessions: listSessions() });
+app.get('/api/sessions', async (c: Context) => {
+  const sessions = await listAllSessions();
+  return c.json({ sessions });
+});
+
+// POST /api/sessions/switch
+app.post('/api/sessions/switch', async (c: Context) => {
+  const body = await c.req.json<{ sessionPath?: string }>();
+  if (!body.sessionPath) {
+    return c.json({ error: 'sessionPath required' }, 400);
+  }
+  const sess = await switchSessionTo(body.sessionPath);
+  return c.json({
+    id: sess.id,
+    title: sess.title,
+    createdAt: sess.createdAt,
+    modelId: sess.model?.id ?? 'default',
+    workspaceDir: sess.workspaceDir,
+  });
 });
 
 // POST /api/sessions
@@ -63,9 +80,19 @@ app.post('/api/sessions', async (c: Context) => {
 });
 
 // GET /api/sessions/:id
-app.get('/api/sessions/:id', (c: Context) => {
+app.get('/api/sessions/:id', async (c: Context) => {
   const id = c.req.param('id');
-  const sess = getSession(id);
+  let sess = getSession(id);
+
+  // If not in memory, check if it's a persisted session on disk
+  if (!sess) {
+    const all = await listAllSessions();
+    const target = all.find((s) => s.id === id);
+    if (target?.sessionPath) {
+      sess = await switchSessionTo(target.sessionPath);
+    }
+  }
+
   if (!sess) return c.json({ error: 'Session not found' }, 404);
 
   const resp: GetSessionResponse = {

@@ -14,7 +14,7 @@ import type { SessionSummary, ModelInfo } from '../types.ts';
 interface SidebarProps {
   sessions: SessionSummary[];
   activeSessionId: string;
-  onSelectSession: (id: string) => void;
+  onSelectSession: (id: string, sessionPath?: string) => void;
   onCreateSession: () => void;
   models: ModelInfo[];
   selectedModelId: string;
@@ -99,7 +99,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           return (
             <button
               key={s.id}
-              onClick={() => onSelectSession(s.id)}
+              onClick={() => onSelectSession(s.id, s.sessionPath)}
               className={`w-full text-left p-2.5 rounded-xl text-xs transition-all flex items-start gap-2.5 cursor-pointer border ${
                 isActive
                   ? 'bg-neutral-900 text-neutral-100 border-neutral-700 shadow-sm'

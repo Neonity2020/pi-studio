@@ -14,6 +14,7 @@ export interface SessionSummary {
   workspaceDir: string;
   messageCount: number;
   isStreaming: boolean;
+  sessionPath?: string;
 }
 
 export interface ToolCall {
