@@ -99,3 +99,14 @@ export async function switchSessionTo(sessionPath: string, workspaceDir: string 
 export function getDefaultSession(): RpcSession | undefined {
   return memorySessions.get('default-session');
 }
+
+export function closeAllSessions(): void {
+  for (const s of memorySessions.values()) {
+    try {
+      s.proc.kill('SIGTERM');
+    } catch {
+      // ignore
+    }
+  }
+  memorySessions.clear();
+}
