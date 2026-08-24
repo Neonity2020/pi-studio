@@ -1,0 +1,190 @@
+import { Hono } from 'hono';
+import type { Context } from 'hono';
+import { createSession, getSession, listSessions } from '../sessions.js';
+import { getAvailableModels } from '../models.js';
+import type { SessionResponse, GetSessionResponse } from '../types.js';
+
+const app = new Hono();
+
+// GET /api/models
+app.get('/api/models', (c: Context) => {
+  return c.json({ models: getAvailableModels() });
+});
+
+// GET /api/sessions
+app.get('/api/sessions', (c: Context) => {
+  return c.json({ sessions: listSessions() });
+});
+
+// POST /api/sessions
+app.post('/api/sessions', async (c: Context) => {
+  const body = await c.req.json<{
+    title?: string;
+    modelId?: string;
+    provider?: string;
+    workspaceDir?: string;
+  }>();
+  const sess = createSession({
+    title: body.title,
+    modelId: body.modelId,
+    provider: body.provider,
+    workspaceDir: body.workspaceDir,
+  });
+  return c.json<SessionResponse>({
+    id: sess.id,
+    title: sess.title,
+    createdAt: sess.createdAt,
+    modelId: sess.model?.id ?? 'default',
+    workspaceDir: sess.workspaceDir,
+  });
+});
+
+// GET /api/sessions/:id
+app.get('/api/sessions/:id', (c: Context) => {
+  const id = c.req.param('id');
+  const sess = getSession(id);
+  if (!sess) return c.json({ error: 'Session not found' }, 404);
+
+  const resp: GetSessionResponse = {
+    id: sess.id,
+    title: sess.title,
+    createdAt: sess.createdAt,
+    model: sess.model || { id: 'pi-default', name: 'Pi Local Agent' },
+    workspaceDir: sess.workspaceDir,
+    state: {
+      messages: sess.messages,
+      isStreaming: sess.isStreaming,
+      tools: [
+        { name: 'read', description: 'Read file contents' },
+        { name: 'bash', description: 'Execute bash commands' },
+        { name: 'edit', description: 'Edit files with find/replace' },
+        { name: 'write', description: 'Write files' },
+      ],
+      hasQueuedMessages: false,
+    },
+  };
+  return c.json(resp);
+});
+
+// POST /api/sessions/:id/prompt
+app.post('/api/sessions/:id/prompt', async (c: Context) => {
+  const id = c.req.param('id');
+  const sess = getSession(id);
+  if (!sess) return c.json({ error: 'Session not found' }, 404);
+
+  const body = await c.req.json<{ prompt?: string }>();
+  const { prompt } = body;
+  if (!prompt || typeof prompt !== 'string') {
+    return c.json({ error: 'Prompt text required' }, 400);
+  }
+
+  if (sess.messages.length === 0) {
+    sess.title = prompt.slice(0, 30);
+  }
+
+  sess.proc.stdin.write(
+    JSON.stringify({
+      id: `prompt_${Date.now()}`,
+      type: 'prompt',
+      message: prompt,
+    }) + '\n',
+  );
+
+  return c.json({ status: 'sent' });
+});
+
+// POST /api/sessions/:id/steer
+app.post('/api/sessions/:id/steer', async (c: Context) => {
+  const id = c.req.param('id');
+  const sess = getSession(id);
+  if (!sess) return c.json({ error: 'Session not found' }, 404);
+
+  const body = await c.req.json<{ prompt?: string }>();
+  const { prompt } = body;
+  sess.proc.stdin.write(
+    JSON.stringify({
+      id: `steer_${Date.now()}`,
+      type: 'steer',
+      message: prompt ?? '',
+    }) + '\n',
+  );
+
+  return c.json({ status: 'steered' });
+});
+
+// POST /api/sessions/:id/follow-up
+app.post('/api/sessions/:id/follow-up', async (c: Context) => {
+  const id = c.req.param('id');
+  const sess = getSession(id);
+  if (!sess) return c.json({ error: 'Session not found' }, 404);
+
+  const body = await c.req.json<{ prompt?: string }>();
+  const { prompt } = body;
+  sess.proc.stdin.write(
+    JSON.stringify({
+      id: `followup_${Date.now()}`,
+      type: 'follow_up',
+      message: prompt ?? '',
+    }) + '\n',
+  );
+
+  return c.json({ status: 'queued_follow_up' });
+});
+
+// POST /api/sessions/:id/abort
+app.post('/api/sessions/:id/abort', (c: Context) => {
+  const id = c.req.param('id');
+  const sess = getSession(id);
+  if (!sess) return c.json({ error: 'Session not found' }, 404);
+
+  sess.proc.stdin.write(
+    JSON.stringify({
+      id: `abort_${Date.now()}`,
+      type: 'abort',
+    }) + '\n',
+  );
+
+  return c.json({ status: 'aborted' });
+});
+
+// POST /api/sessions/:id/reset
+app.post('/api/sessions/:id/reset', (c: Context) => {
+  const id = c.req.param('id');
+  const sess = getSession(id);
+  if (!sess) return c.json({ error: 'Session not found' }, 404);
+
+  sess.proc.stdin.write(
+    JSON.stringify({
+      id: `new_session_${Date.now()}`,
+      type: 'new_session',
+    }) + '\n',
+  );
+  sess.messages = [];
+
+  return c.json({ status: 'reset' });
+});
+
+// POST /api/sessions/:id/config
+app.post('/api/sessions/:id/config', async (c: Context) => {
+  const id = c.req.param('id');
+  const sess = getSession(id);
+  if (!sess) return c.json({ error: 'Session not found' }, 404);
+
+  const body = await c.req.json<{ modelId?: string; provider?: string }>();
+  const { modelId, provider } = body;
+  if (modelId) {
+    const p = provider ?? getAvailableModels().find((m) => m.id === modelId)?.provider ?? 'opencode-go';
+    sess.proc.stdin.write(
+      JSON.stringify({
+        id: `set_model_${Date.now()}`,
+        type: 'set_model',
+        provider: p,
+        modelId,
+      }) + '\n',
+    );
+  }
+
+  return c.json({ status: 'model_updated' });
+});
+
+export default app;
