@@ -255,16 +255,19 @@ export default function App() {
     }
   };
 
-  const handleChangeModel = async (newModelId: string) => {
+  const handleChangeModel = async (newModelId: string, provider?: string) => {
     if (!activeSessionId) return;
-    const targetModel = models.find((m) => m.id === newModelId);
+    const targetModel = models.find(
+      (m) => m.id === newModelId && (!provider || m.provider === provider)
+    ) || models.find((m) => m.id === newModelId);
+
     try {
       await fetch(`/api/sessions/${activeSessionId}/config`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           modelId: newModelId,
-          provider: targetModel?.provider,
+          provider: provider || targetModel?.provider,
         }),
       });
       fetchSessionDetail(activeSessionId);
@@ -300,6 +303,7 @@ export default function App() {
         onCreateSession={handleCreateSession}
         models={models}
         selectedModelId={currentSession?.model.id || models[0]?.id || ''}
+        selectedProvider={currentSession?.model.provider}
         onChangeModel={handleChangeModel}
         workspaceDir={currentSession?.workspaceDir || '/workspace'}
       />

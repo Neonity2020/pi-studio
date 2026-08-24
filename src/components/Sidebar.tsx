@@ -19,7 +19,8 @@ interface SidebarProps {
   onCreateSession: () => void;
   models: ModelInfo[];
   selectedModelId: string;
-  onChangeModel: (modelId: string) => void;
+  selectedProvider?: string;
+  onChangeModel: (modelId: string, provider?: string) => void;
   workspaceDir: string;
 }
 
@@ -30,6 +31,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onCreateSession,
   models,
   selectedModelId,
+  selectedProvider,
   onChangeModel,
   workspaceDir,
 }) => {
@@ -78,7 +80,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return map;
   }, [models, searchQuery]);
 
-  const currentModel = models.find((m) => m.id === selectedModelId);
+  const currentModel = models.find(
+    (m) => m.id === selectedModelId && (!selectedProvider || m.provider === selectedProvider)
+  ) || models.find((m) => m.id === selectedModelId);
 
   return (
     <aside className="w-72 bg-neutral-950 border-r border-neutral-850 flex flex-col h-screen select-none relative z-20">
@@ -176,12 +180,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </div>
                     <div className="mt-0.5 space-y-0.5">
                       {providerModels.map((m) => {
-                        const isSelected = m.id === selectedModelId;
+                        const isSelected = m.id === selectedModelId && m.provider === currentModel?.provider;
                         return (
                           <button
                             key={`${m.provider}/${m.id}`}
                             onClick={() => {
-                              onChangeModel(m.id);
+                              onChangeModel(m.id, m.provider);
                               setIsDropdownOpen(false);
                             }}
                             className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-mono transition-colors flex items-center justify-between cursor-pointer ${

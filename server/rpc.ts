@@ -59,9 +59,16 @@ export function buildSession(
         if (json.command === 'get_state' && json.data) {
           session.state = json.data;
           session.model = json.data.model;
+        } else if (json.command === 'set_model') {
+          session.proc.stdin.write(JSON.stringify({ id: `state_${Date.now()}`, type: 'get_state' }) + '\n');
         } else if (json.command === 'get_messages' && json.data) {
           session.messages = json.data.messages || [];
         }
+      }
+
+      // Handle config update broadcast
+      if (json.type === 'config_update' && json.model) {
+        session.model = json.model;
       }
 
       // Handle lifecycle events
