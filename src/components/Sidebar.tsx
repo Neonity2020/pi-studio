@@ -1,13 +1,14 @@
-import React from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Plus,
   MessageSquare,
-  Wrench,
-  Trash2,
   Cpu,
   FolderTree,
-  Terminal,
   Activity,
+  Search,
+  Check,
+  ChevronDown,
+  X,
 } from 'lucide-react';
 import type { SessionSummary, ModelInfo } from '../types.ts';
 
@@ -32,8 +33,55 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onChangeModel,
   workspaceDir,
 }) => {
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Auto focus input on dropdown open
+  useEffect(() => {
+    if (isDropdownOpen) {
+      setTimeout(() => searchInputRef.current?.focus(), 50);
+    } else {
+      setSearchQuery('');
+    }
+  }, [isDropdownOpen]);
+
+  // Filtered models grouped by provider
+  const filteredGroups = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    const map: Record<string, ModelInfo[]> = {};
+
+    for (const m of models) {
+      if (
+        !query ||
+        m.id.toLowerCase().includes(query) ||
+        m.provider.toLowerCase().includes(query) ||
+        m.name.toLowerCase().includes(query)
+      ) {
+        const p = m.provider || 'other';
+        if (!map[p]) map[p] = [];
+        map[p].push(m);
+      }
+    }
+    return map;
+  }, [models, searchQuery]);
+
+  const currentModel = models.find((m) => m.id === selectedModelId);
+
   return (
-    <aside className="w-72 bg-neutral-950 border-r border-neutral-850 flex flex-col h-screen select-none">
+    <aside className="w-72 bg-neutral-950 border-r border-neutral-850 flex flex-col h-screen select-none relative z-20">
       {/* Brand Header */}
       <div className="p-4 border-b border-neutral-900 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
@@ -66,44 +114,94 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </button>
       </div>
 
-      {/* Model Selector Card */}
-      <div className="px-3 pb-3">
+      {/* Model Selector Card with Live Search */}
+      <div className="px-3 pb-3 relative" ref={dropdownRef}>
         <div className="p-2.5 rounded-xl bg-neutral-900/60 border border-neutral-800/80">
-          <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400 mb-1.5">
-            <Cpu className="w-3 h-3 text-cyan-400" />
-            <span>当前模型</span>
+          <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-neutral-400 mb-1.5">
+            <div className="flex items-center gap-1.5">
+              <Cpu className="w-3 h-3 text-cyan-400" />
+              <span>当前模型</span>
+            </div>
+            <span className="text-[10px] font-mono text-neutral-500">{models.length} 可选</span>
           </div>
-          <select
-            value={selectedModelId}
-            onChange={(e) => onChangeModel(e.target.value)}
-            className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1.5 text-xs text-neutral-200 focus:outline-none focus:border-cyan-500 transition-colors"
+
+          {/* Custom Trigger Button */}
+          <button
+            type="button"
+            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+            className="w-full bg-neutral-950 border border-neutral-800 hover:border-neutral-700 rounded-lg px-2.5 py-1.5 text-xs text-neutral-200 flex items-center justify-between text-left transition-colors cursor-pointer"
           >
-            {Object.entries(
-              models.reduce<Record<string, ModelInfo[]>>((acc, m) => {
-                const p = m.provider || 'other';
-                if (!acc[p]) acc[p] = [];
-                acc[p].push(m);
-                return acc;
-              }, {})
-            ).map(([provider, providerModels]) => (
-              <optgroup
-                key={provider}
-                label={`── ${provider.toUpperCase()} (${providerModels.length}) ──`}
-                className="bg-neutral-900 text-cyan-400 font-semibold"
-              >
-                {providerModels.map((m) => (
-                  <option
-                    key={`${m.provider}/${m.id}`}
-                    value={m.id}
-                    className="bg-neutral-950 text-neutral-200 font-normal"
-                  >
-                    {m.id}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
+            <span className="truncate font-mono text-[11px]">
+              {currentModel ? `${currentModel.provider} / ${currentModel.id}` : selectedModelId || '选择模型'}
+            </span>
+            <ChevronDown className={`w-3.5 h-3.5 text-neutral-500 shrink-0 transition-transform duration-150 ${isDropdownOpen ? 'rotate-180' : ''}`} />
+          </button>
         </div>
+
+        {/* Searchable Dropdown Popup */}
+        {isDropdownOpen && (
+          <div className="absolute left-3 right-3 top-full mt-1.5 bg-neutral-900 border border-neutral-800 rounded-xl shadow-2xl overflow-hidden z-50 flex flex-col max-h-80 animate-in fade-in zoom-in-95 duration-100">
+            {/* Search Input Bar */}
+            <div className="p-2 border-b border-neutral-800 bg-neutral-950/80 flex items-center gap-2">
+              <Search className="w-3.5 h-3.5 text-neutral-500 shrink-0" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="搜索模型或提供商..."
+                className="w-full bg-transparent text-xs text-neutral-200 placeholder-neutral-500 focus:outline-none"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="text-neutral-500 hover:text-neutral-300 p-0.5 rounded"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+
+            {/* Grouped Model List */}
+            <div className="flex-1 overflow-y-auto p-1.5 space-y-2">
+              {Object.keys(filteredGroups).length === 0 ? (
+                <div className="p-4 text-center text-xs text-neutral-500">
+                  未匹配到模型
+                </div>
+              ) : (
+                Object.entries(filteredGroups).map(([provider, providerModels]) => (
+                  <div key={provider}>
+                    <div className="px-2 py-1 text-[10px] font-mono font-semibold uppercase tracking-wider text-cyan-400/80 bg-neutral-950/40 rounded">
+                      {provider} ({providerModels.length})
+                    </div>
+                    <div className="mt-0.5 space-y-0.5">
+                      {providerModels.map((m) => {
+                        const isSelected = m.id === selectedModelId;
+                        return (
+                          <button
+                            key={`${m.provider}/${m.id}`}
+                            onClick={() => {
+                              onChangeModel(m.id);
+                              setIsDropdownOpen(false);
+                            }}
+                            className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-mono transition-colors flex items-center justify-between cursor-pointer ${
+                              isSelected
+                                ? 'bg-cyan-500/10 text-cyan-300 border border-cyan-500/30'
+                                : 'text-neutral-300 hover:bg-neutral-800 hover:text-neutral-100 border border-transparent'
+                            }`}
+                          >
+                            <span className="truncate">{m.id}</span>
+                            {isSelected && <Check className="w-3 h-3 text-cyan-400 shrink-0 ml-1" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Session History List */}
