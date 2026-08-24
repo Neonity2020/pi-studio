@@ -1,10 +1,10 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { serve } from '@hono/node-server';
-import sessionsRoutes from './routes/sessions.js';
-import eventsRoutes from './routes/events.js';
-import { createSession, getDefaultSession, closeAllSessions } from './sessions.js';
-import { refreshAvailableModels } from './models.js';
+import sessionsRoutes from './routes/sessions.ts';
+import eventsRoutes from './routes/events.ts';
+import { createSession, getDefaultSession, closeAllSessions } from './sessions.ts';
+import { refreshAvailableModels } from './models.ts';
 
 const app = new Hono();
 const PORT = Number(process.env.PORT) || 3001;

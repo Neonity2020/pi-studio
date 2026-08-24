@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { streamSSE } from 'hono/streaming';
-import { getSession } from '../sessions.js';
+import { getSession } from '../sessions.ts';
 
 const app = new Hono();
 

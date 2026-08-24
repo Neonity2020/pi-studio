@@ -2,9 +2,9 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import { Hono } from 'hono';
 import type { Context } from 'hono';
-import { createSession, getSession, listAllSessions, switchSessionTo } from '../sessions.js';
-import { getAvailableModels } from '../models.js';
-import type { SessionResponse, GetSessionResponse } from '../types.js';
+import { createSession, getSession, listAllSessions, switchSessionTo } from '../sessions.ts';
+import { getAvailableModels } from '../models.ts';
+import type { SessionResponse, GetSessionResponse } from '../types.ts';
 
 const app = new Hono();
 
@@ -226,18 +226,45 @@ app.post('/api/sessions/:id/config', async (c: Context) => {
   const { modelId, provider } = body;
   if (modelId) {
     const models = await getAvailableModels();
-    const p = provider ?? models.find((m) => m.id === modelId)?.provider ?? 'opencode-go';
-    sess.proc.stdin.write(
-      JSON.stringify({
-        id: `set_model_${Date.now()}`,
-        type: 'set_model',
-        provider: p,
-        modelId,
-      }) + '\n',
-    );
+    const targetModel = models.find((m) => m.id === modelId && (!provider || m.provider === provider))
+      || models.find((m) => m.id === modelId);
+
+    const p = provider ?? targetModel?.provider ?? 'opencode-go';
+
+    return new Promise((resolve) => {
+      const cmdId = `set_model_${Date.now()}`;
+      const handler = (json: any) => {
+        if (json.type === 'response' && json.id === cmdId) {
+          sess.subscribers.delete(handler);
+          if (json.success) {
+            sess.model = json.data;
+            resolve(c.json({ status: 'model_updated', model: sess.model }));
+          } else {
+            resolve(c.json({ error: json.error || 'Failed to switch model' }, 400));
+          }
+        }
+      };
+
+      sess.subscribers.add(handler);
+
+      sess.proc.stdin.write(
+        JSON.stringify({
+          id: cmdId,
+          type: 'set_model',
+          provider: p,
+          modelId,
+        }) + '\n',
+      );
+
+      // Fallback timeout after 3s
+      setTimeout(() => {
+        sess.subscribers.delete(handler);
+        resolve(c.json({ status: 'model_updated', model: sess.model }));
+      }, 3000);
+    });
   }
 
-  return c.json({ status: 'model_updated' });
+  return c.json({ status: 'no_change' });
 });
 
 export default app;

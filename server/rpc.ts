@@ -1,6 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process';
 import readline from 'readline';
-import type { RpcSession } from './types.js';
+import type { RpcSession } from './types.ts';
 
 export function buildSession(
   params: {

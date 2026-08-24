@@ -1,6 +1,6 @@
-import type { RpcSession, SessionListItem } from './types.js';
-import { buildSession } from './rpc.js';
-import { listPersistentSessions } from './storage.js';
+import type { RpcSession, SessionListItem } from './types.ts';
+import { buildSession } from './rpc.ts';
+import { listPersistentSessions } from './storage.ts';
 
 // Active RPC session instances
 const memorySessions = new Map<string, RpcSession>();
