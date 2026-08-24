@@ -78,10 +78,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onChange={(e) => onChangeModel(e.target.value)}
             className="w-full bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1.5 text-xs text-neutral-200 focus:outline-none focus:border-cyan-500 transition-colors"
           >
-            {models.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
+            {Object.entries(
+              models.reduce<Record<string, ModelInfo[]>>((acc, m) => {
+                const p = m.provider || 'other';
+                if (!acc[p]) acc[p] = [];
+                acc[p].push(m);
+                return acc;
+              }, {})
+            ).map(([provider, providerModels]) => (
+              <optgroup
+                key={provider}
+                label={`── ${provider.toUpperCase()} (${providerModels.length}) ──`}
+                className="bg-neutral-900 text-cyan-400 font-semibold"
+              >
+                {providerModels.map((m) => (
+                  <option
+                    key={`${m.provider}/${m.id}`}
+                    value={m.id}
+                    className="bg-neutral-950 text-neutral-200 font-normal"
+                  >
+                    {m.id}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </div>
